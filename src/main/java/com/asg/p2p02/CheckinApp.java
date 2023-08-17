@@ -1,6 +1,6 @@
 package com.asg.p2p02;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
 import javax.jms.JMSConsumer;
@@ -19,7 +19,7 @@ import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
 
 public class CheckinApp implements MessageListener {
     private static final CountDownLatch latch = new CountDownLatch(1);
-    private static HashMap<String, ObjectMessage> messages = new HashMap<>();
+    private static ConcurrentHashMap<String, ObjectMessage> messages = new ConcurrentHashMap<>();
 
     @Override
     public void onMessage(Message message) {
@@ -32,16 +32,16 @@ public class CheckinApp implements MessageListener {
 
             System.out.println("original request Passenger id : " + p1.getId());
             System.out.println("original request Passenger firstName : " +
-            p1.getFirstName());
+                    p1.getFirstName());
             System.out.println("original request Passenger firstName : " +
-            p1.getLastName());
+                    p1.getLastName());
             System.out.println("original request Passenger email : " + p1.getEmail());
             System.out.println("original request Passenger phone : " + p1.getPhone());
 
             System.out.println("reserved seat : " + msg.getString("seat"));
 
             if (p1.getId() == 99)
-            latch.countDown();
+                latch.countDown();
 
         } catch (JMSException e) {
             e.printStackTrace();
@@ -50,36 +50,79 @@ public class CheckinApp implements MessageListener {
 
     }
 
-    public static void main(String[] args) throws NamingException{
+    public static void main(String[] args) throws NamingException {
         InitialContext initialContext = new InitialContext();
-            Queue requestQ = (Queue) initialContext.lookup("queue/requestQueue");
-            Queue replyQ = (Queue) initialContext.lookup("queue/replyQueue");
+        // Queue requestQ = (Queue) initialContext.lookup("queue/requestQueue");
+        Queue replyQ = (Queue) initialContext.lookup("queue/replyQueue");
         try (ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("tcp://localhost:61616", "admin", "admin");
                 JMSContext jmsContext = cf.createContext()) {
 
             JMSConsumer consumer = jmsContext.createConsumer(replyQ);
             consumer.setMessageListener(new CheckinApp());
 
-            JMSProducer producer = jmsContext.createProducer();
+            new Thread(new Runnable() {
 
-            Passenger p1 = null;
-            ObjectMessage msg = null;
+                @Override
+                public void run() throws RuntimeException {
 
-            for (int i = 0; i < 100; i++) {
-                p1 = new Passenger();
-                p1.setId(i);
-                p1.setFirstName("Bob" + i);
-                p1.setLastName("Zhang");
-                p1.setEmail("bob" + i + "@asg.com");
-                p1.setPhone("138" + i);
+                    System.out.println("checkin main producer id: " + Thread.currentThread().getId());
+                    try (ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("tcp://localhost:61616", "admin",
+                            "admin");
+                            JMSContext jmsContext = cf.createContext()) {
 
-               msg = jmsContext.createObjectMessage(p1);
-                // messages.put(msg.getJMSMessageID(), msg); // this moment , message id is null
+                        InitialContext initialContext = new InitialContext();
+                        Queue requestQ = (Queue) initialContext.lookup("queue/requestQueue");
 
-                producer.send(requestQ, msg);
-                messages.put(msg.getJMSMessageID(), msg);
+                        JMSProducer producer = jmsContext.createProducer();
 
-            }
+                        Passenger p1 = null;
+                        ObjectMessage msg = null;
+
+                        for (int i = 0; i < 100; i++) {
+                            p1 = new Passenger();
+                            p1.setId(i);
+                            p1.setFirstName("Bob" + i);
+                            p1.setLastName("Zhang");
+                            p1.setEmail("bob" + i + "@asg.com");
+                            p1.setPhone("138" + i);
+
+                            msg = jmsContext.createObjectMessage(p1);
+                            // messages.put(msg.getJMSMessageID(), msg); // this moment , message id is null
+
+                            producer.send(requestQ, msg);
+                            messages.put(msg.getJMSMessageID(), msg);
+
+                        }
+
+                        System.out.println("checkin main producer id: " + Thread.currentThread().getId() + "finish sending messages...");
+
+                    } catch (Exception e) {
+                        throw new RuntimeException();
+                    }
+                }
+            }).start();
+
+            // JMSProducer producer = jmsContext.createProducer();
+
+            // Passenger p1 = null;
+            // ObjectMessage msg = null;
+
+            // for (int i = 0; i < 100; i++) {
+            // p1 = new Passenger();
+            // p1.setId(i);
+            // p1.setFirstName("Bob" + i);
+            // p1.setLastName("Zhang");
+            // p1.setEmail("bob" + i + "@asg.com");
+            // p1.setPhone("138" + i);
+
+            // msg = jmsContext.createObjectMessage(p1);
+            // // messages.put(msg.getJMSMessageID(), msg); // this moment , message id is
+            // null
+
+            // producer.send(requestQ, msg);
+            // messages.put(msg.getJMSMessageID(), msg);
+
+            // }
 
             // messages.forEach((k, v) -> System.out.println(k + " " + v));
 
@@ -87,9 +130,7 @@ public class CheckinApp implements MessageListener {
 
             latch.await();
 
-        } catch (JMSException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
+        }  catch (InterruptedException e) {
             e.printStackTrace();
         }
 
