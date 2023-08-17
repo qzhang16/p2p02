@@ -23,6 +23,7 @@ public class CheckinApp implements MessageListener {
 
     @Override
     public void onMessage(Message message) {
+        System.out.println("checkin onMessage id: " + Thread.currentThread().getId());
         try {
             MapMessage msg = (MapMessage) message;
             // System.out.println(msg.getJMSCorrelationID());
@@ -39,7 +40,7 @@ public class CheckinApp implements MessageListener {
 
             System.out.println("reserved seat : " + msg.getString("seat"));
 
-            if (p1.getId() == 9)
+            if (p1.getId() == 99)
             latch.countDown();
 
         } catch (JMSException e) {
@@ -64,7 +65,7 @@ public class CheckinApp implements MessageListener {
             Passenger p1 = null;
             ObjectMessage msg = null;
 
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 100; i++) {
                 p1 = new Passenger();
                 p1.setId(i);
                 p1.setFirstName("Bob" + i);
@@ -81,6 +82,8 @@ public class CheckinApp implements MessageListener {
             }
 
             // messages.forEach((k, v) -> System.out.println(k + " " + v));
+
+            System.out.println("checkin main id: " + Thread.currentThread().getId());
 
             latch.await();
 

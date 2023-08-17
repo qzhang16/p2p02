@@ -22,6 +22,7 @@ public class ReservationSystem implements MessageListener {
 
     @Override
     public void onMessage(Message message) {
+        System.out.println("ReservationSystem onMessage id: " + Thread.currentThread().getId());
         try {
               InitialContext initialContext = new InitialContext();
             Queue replyQ = (Queue) initialContext.lookup("queue/replyQueue");
@@ -41,7 +42,7 @@ public class ReservationSystem implements MessageListener {
             msgR.setString("seat", "00" + p1.getId());
             producer.send(replyQ, msgR);
 
-            if (p1.getId() == 9)
+            if (p1.getId() == 99)
                 latch.countDown();
 
         } catch (JMSException e) {
@@ -63,7 +64,9 @@ public class ReservationSystem implements MessageListener {
 
             JMSConsumer consumer = jmsContext.createConsumer(requestQ);
             consumer.setMessageListener(new ReservationSystem());
-            consumer.setMessageListener(new ReservationSystem());
+            // consumer.setMessageListener(new ReservationSystem());
+
+            System.out.println("ReservationSystem main id: " + Thread.currentThread().getId());
 
             latch.await();
 
